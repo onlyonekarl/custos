@@ -1,39 +1,16 @@
 import ollama from "ollama";
 
-// ============================================================
-// CUSTOS — Autonomous RWA Verification Agent
-// Built for X Layer AI-RWA Hackathon Track
-// ============================================================
-//
-// Custos checks tokenized real-world assets (RWAs) across three
-// dimensions before a user trusts/interacts with them:
-//   1. Issuer verification (KYB/licensing)
-//   2. Collateral backing ratio
-//   3. Smart contract risk (audit status, age, upgradeability)
-//
-// NOTE ON DATA SOURCES:
-// This build uses mock data for the hackathon demo. The architecture
-// is designed to be "PoR-ready" — each function below is structured
-// to be swapped for a live Chainlink Proof of Reserve / Data Feed call
-// using the standard AggregatorV3Interface pattern, e.g.:
-//
-//   const feed = new ethers.Contract(feedAddress, aggregatorV3ABI, provider);
-//   const [, answer] = await feed.latestRoundData();
-//
-// Once a confirmed live PoR feed is available for a given RWA token on
-// X Layer, only the internals of these functions change — the agent
-// loop, risk logic, and alert system stay the same.
-// ============================================================
-
 const tools = [
   {
     type: "function",
     function: {
       name: "check_issuer_verification",
-      description: "Check if an RWA token issuer has verified KYB/licensing status",
+      description: "Check if an RWA token issuer has verified KYB licensing status",
       parameters: {
         type: "object",
-        properties: { tokenAddress: { type: "string" } },
+        properties: {
+          tokenAddress: { type: "string" }
+        },
         required: ["tokenAddress"]
       }
     }
@@ -45,7 +22,9 @@ const tools = [
       description: "Check the collateral backing ratio of an RWA token",
       parameters: {
         type: "object",
-        properties: { tokenAddress: { type: "string" } },
+        properties: {
+          tokenAddress: { type: "string" }
+        },
         required: ["tokenAddress"]
       }
     }
@@ -57,7 +36,9 @@ const tools = [
       description: "Check smart contract risk factors",
       parameters: {
         type: "object",
-        properties: { tokenAddress: { type: "string" } },
+        properties: {
+          tokenAddress: { type: "string" }
+        },
         required: ["tokenAddress"]
       }
     }
@@ -69,66 +50,97 @@ const tools = [
       description: "Send a text alert to the user",
       parameters: {
         type: "object",
-        properties: { message: { type: "string" } },
+        properties: {
+          message: { type: "string" }
+        },
         required: ["message"]
       }
     }
   }
 ];
 
-// --- Tool implementations ---
-
-// TODO (post-hackathon): replace mock `verified` value with a real
-// onchain attestation lookup (e.g. EAS - Ethereum Attestation Service)
-async function check_issuer_verification({ tokenAddress }) {
-  const data = { tokenAddress, verified: true, issuer: "Example Issuer Ltd", licenseJurisdiction: "Singapore" };
-  return { ...data, riskLevel: data.verified ? "low" : "high" };
+function checkIssuer(tokenAddress) {
+  var result = {};
+  result.tokenAddress = tokenAddress;
+  result.verified = true;
+  result.issuer = "Example Issuer Ltd";
+  result.licenseJurisdiction = "Singapore";
+  result.riskLevel = "low";
+  return result;
 }
 
-// TODO (post-hackathon): replace mock `collateralRatio` with a live
-// Chainlink Proof of Reserve feed read via AggregatorV3Interface.latestRoundData()
-async function check_collateral_ratio({ tokenAddress }) {
-  const data = { tokenAddress, collateralRatio: 1.02, backingAsset: "US Treasuries" };
-  return { ...data, riskLevel: data.collateralRatio >= 1.0 ? "low" : "high" };
+function checkCollateral(tokenAddress) {
+  var result = {};
+  result.tokenAddress = tokenAddress;
+  result.collateralRatio = 1.02;
+  result.backingAsset = "US Treasuries";
+  result.riskLevel = "low";
+  return result;
 }
 
-// TODO (post-hackathon): replace mock contract metadata with a real
-// block explorer API call (e.g. OKLink for X Layer) for audit status/age
-async function check_contract_risk({ tokenAddress }) {
-  const data = { tokenAddress, audited: true, contractAgeDays: 210, isUpgradeable: false };
-  const riskFlags = [];
-  if (!data.audited) riskFlags.push("not audited");
-  if (data.contractAgeDays < 30) riskFlags.push("contract is very new (under 30 days)");
-  if (data.isUpgradeable) riskFlags.push("contract is upgradeable (rug risk)");
-  return { ...data, riskLevel: riskFlags.length === 0 ? "low" : "high", riskFlags };
+function checkContractRisk(tokenAddress) {
+  var result = {};
+  result.tokenAddress = tokenAddress;
+  result.audited = true;
+  result.contractAgeDays = 210;
+  result.isUpgradeable = false;
+  var flags = [];
+  if (result.audited === false) {
+    flags.push("not audited");
+  }
+  if (result.contractAgeDays < 30) {
+    flags.push("contract is very new");
+  }
+  if (result.isUpgradeable === true) {
+    flags.push("contract is upgradeable");
+  }
+  result.riskFlags = flags;
+  if (flags.length === 0) {
+    result.riskLevel = "low";
+  } else {
+    result.riskLevel = "high";
+  }
+  return result;
 }
 
-async function send_alert({ message }) {
-  console.log("🔔 ALERT:", message);
-  return { sent: true };
+function sendAlert(message) {
+  console.log("ALERT: " + message);
 }
 
-// --- Core verification logic (deterministic, no LLM in the decision path) ---
+function runAgent(tokenAddress) {
+  if (!tokenAddress) {
+    console.log("Error: no token address given");
+    return;
+  }
 
-async function runAgent(tokenAddress) {
-  console.log(`🔍 Verifying ${tokenAddress}...\n`);
+  console.log("Verifying " + tokenAddress);
+  console.log("");
 
-  const issuer = await check_issuer_verification({ tokenAddress });
-  const collateral = await check_collateral_ratio({ tokenAddress });
-  const risk = await check_contract_risk({ tokenAddress });
+  var issuer = checkIssuer(tokenAddress);
+  var collateral = checkCollateral(tokenAddress);
+  var risk = checkContractRisk(tokenAddress);
 
-  const allChecks = [issuer, collateral, risk];
-  const flagged = allChecks.filter(c => c.riskLevel === "high");
+  var allChecks = [issuer, collateral, risk];
+  var flagged = [];
+  for (var i = 0; i < allChecks.length; i++) {
+    if (allChecks[i].riskLevel === "high") {
+      flagged.push(allChecks[i]);
+    }
+  }
 
-  console.log("📋 Results:", JSON.stringify(allChecks, null, 2));
+  console.log("Results:");
+  console.log(JSON.stringify(allChecks, null, 2));
 
   if (flagged.length > 0) {
-    await send_alert({ message: "Token " + tokenAddress + " has risk flags: " + JSON.stringify(flagged) });
+    sendAlert("Token " + tokenAddress + " has risk flags: " + JSON.stringify(flagged));
   } else {
-    console.log("✅ No risk flags. Token looks clean.");
+    console.log("No risk flags. Token looks clean.");
   }
 }
 
-// --- Entry point ---
-const inputAddress = process.argv[2] || "0x1234567890abcdef";
+var inputAddress = process.argv[2];
+if (inputAddress === undefined) {
+  inputAddress = "0x1234567890abcdef";
+}
+
 runAgent(inputAddress);

@@ -4,6 +4,9 @@
   "type": "module",
   "main": "agent.js",
   "dependencies": {
+    "express": "^5.2.1",
     "ollama": "^0.6.3"
   }
+  ,"scripts": { "start": "node server.js"
+}
 }
